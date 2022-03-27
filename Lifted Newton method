@@ -1,0 +1,102 @@
+clc; clear; close all
+tol = 1e-12;            % convergence tolerance
+maxit = 1e4;            % maximum iterations
+
+F = @(w) w.^16 - 2 ;    % function
+dF = @(w) 16*w.^15 ;    % derivative
+
+% visualize function
+w = linspace(-1,1,100)';
+figure(1)
+plot(w,F(w))
+xlabel('w')
+legend('F(w)')
+title('residual function')
+
+%% 3a)
+
+% some initial values
+W0 = [.8, 1, 2, 5, 10];
+
+figure(2); clf;
+% loop through all values in W0
+for w0 = W0
+    % newton method (exact derivatives)
+    [W, Res] = newtonType(F,dF,w0,tol,maxit);
+    semilogy(abs(Res), 'Displayname', ['w0=', num2str(w0)])
+    hold on
+end
+legend()
+xlabel('iteration k')
+ylabel('|F(w_k)|')
+title('convergence of newton''s method for a few initializations')
+
+%% 3b)
+% analytical bound on local convergence, see solution pdf
+w_ana = 2^(-1/15) * 2^(1/16);
+
+% check convergence at these initializations
+W0 = linspace(.9, 2, 200);
+
+iters = [];
+res_fin = [];
+% loop through all values in W0
+for w0 = W0
+    % newton type with fixed jacobian
+    [W, Res] = newtonType(F,@(w) dF(w0), w0, tol, maxit);
+    iters = [iters, length(W)-1];           % number of iterations
+    res_fin = [res_fin, abs(Res(end))];     % final residual
+end
+
+figure(3); clf;
+subplot(2,1,1)
+idx = find(iters < maxit);
+semilogy(W0(idx), iters(idx), 'g.')
+hold on
+idx = find(iters >= maxit);
+semilogy(W0(idx), iters(idx), 'r.')
+semilogy(w_ana * [1, 1], ylim, 'k')
+legend('converged', 'not converged (in maxit)', 'analytic local convergence bound', 'location', 'southeast')
+xlabel('w0')
+ylabel('number of iterations')
+xlim([W0(1), W0(end)])
+title('newton type with fixed Jacobian')
+
+
+subplot(2,1,2);
+semilogy(W0, res_fin, 'b.');
+hold on;
+xlim([W0(1), W0(end)])
+semilogy(w_ana * [1, 1], ylim, 'k')
+xlabel('w0')
+ylabel('final residual')
+
+%% 3c)
+w0 = 100;
+% original version
+[W1, Res1] = newtonType(F, dF, w0, tol, maxit);
+
+% lifted version
+w0 = w0 * ones(4,1);
+% for k = 1:3
+%     w0(k+1) = w0(k)^2;
+% end
+
+Flift = @(w) [w(2) - w(1)^2; w(3) - w(2)^2; w(4) - w(3)^2; -2 + w(4)^2] ;
+dFlift = @(w) [-2*w(1), 1, 0, 0;
+              0, -2*w(2), 1, 0;
+              0, 0, -2*w(3), 1;
+              0, 0, 0, 2*w(4)];
+[W2, Res2] = newtonType(Flift, dFlift, w0, tol, maxit);
+
+wopt = 2^(1/16);                % exact root, for analysis
+
+figure(4); clf;
+semilogy(abs(W1 - wopt))
+hold on;
+semilogy(abs(W2(1,:) - wopt))
+xlabel('iteration k')
+ylabel('|w_k - w^*|')
+legend('original', 'lifted')
+title('newton''s method -- direct vs lifted')
+
